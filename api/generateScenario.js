@@ -1,18 +1,6 @@
 // api/generateScenario.js
-// Sin base de datos — almacenamiento en memoria del proceso
-
+const { kv } = require('@vercel/kv');
 const { randomBytes } = require('crypto');
-
-if (!global._sessions) global._sessions = {};
-const sessions = global._sessions;
-const TTL_MS = 60 * 60 * 1000; // 1 hora
-
-function cleanup() {
-  const now = Date.now();
-  for (const key of Object.keys(sessions)) {
-    if (sessions[key].expires < now) delete sessions[key];
-  }
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -22,8 +10,6 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    cleanup();
-
     const { tema, sector, territorio, horizonte, pregunta_central, escenarios_json } = req.body;
 
     if (!tema || !escenarios_json) {
@@ -37,7 +23,7 @@ module.exports = async function handler(req, res) {
     }
 
     const session_id = randomBytes(8).toString('hex');
-    sessions[session_id] = {
+    const payload = {
       data,
       tema,
       sector:           sector || '',
@@ -45,8 +31,10 @@ module.exports = async function handler(req, res) {
       horizonte:        horizonte || '',
       pregunta_central: pregunta_central || '',
       created_at:       new Date().toISOString(),
-      expires:          Date.now() + TTL_MS,
     };
+
+    // Guardar en KV con TTL de 30 días
+    await kv.set(`scenario:${session_id}`, JSON.stringify(payload), { ex: 2592000 });
 
     const BASE_URL = 'https://escenarios-palominogeraldo23-5744s-projects.vercel.app';
     const view_url = `${BASE_URL}/view/${session_id}`;
