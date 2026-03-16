@@ -4,7 +4,7 @@ info:
   description: Recibe escenarios narrativos prospectivos y genera un dashboard HTML interactivo.
   version: 1.0.0
 servers:
-  - url: https://TU-APP.onrender.com
+  - url: https://escenarios-palominogeraldo23-5744s-projects.vercel.app
 paths:
   /generateScenario:
     post:
