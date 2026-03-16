@@ -27,6 +27,14 @@ def cleanup_sessions():
 @app.get("/")
 def root():
     return {"status": "ok", "service": "CEPLAN Escenarios API"}
+
+@app.post("/debug")
+async def debug(request: Request):
+    body = await request.json()
+    return JSONResponse(body)
+
+@app.post("/generateScenario")
+async def generate_scenario(request: Request):
  
 @app.post("/generateScenario")
 async def generate_scenario(request: Request):
