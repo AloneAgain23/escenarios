@@ -26,13 +26,15 @@ def cleanup_sessions():
     for k in expired:
         del sessions[k]
 
-class GenerateRequest(BaseModel):
+class ScenarioRequest(BaseModel):
+    model_config = {"extra": "allow"}
+    
     tema: str
-    sector: Optional[str] = None
-    territorio: Optional[str] = None
-    horizonte: Optional[str] = None
-    pregunta_central: Optional[str] = None
-    escenarios_json: Any
+    sector: Optional[str] = ""
+    territorio: Optional[str] = ""
+    horizonte: Optional[str] = ""
+    pregunta_central: Optional[str] = ""
+    escenarios_json: Optional[Any] = None
 
 @app.get("/")
 def root():
