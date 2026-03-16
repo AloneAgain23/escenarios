@@ -1,13 +1,8 @@
 {
   "name": "ceplan-escenarios",
   "version": "1.0.0",
-  "description": "CEPLAN Escenarios Prospectivos — Dashboard API",
   "private": true,
-  "dependencies": {
-    "@vercel/kv": "^2.0.0",
-    "nanoid": "^5.0.7"
-  },
   "engines": {
     "node": ">=18"
   }
-}
+}}
