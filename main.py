@@ -1,15 +1,12 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Any, Optional
-
 import uuid
 import json
 from datetime import datetime, timedelta
-
+ 
 app = FastAPI(title="CEPLAN Escenarios API")
-
+ 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,83 +14,68 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+ 
 sessions = {}
 SESSION_TTL_HOURS = 24
-
+ 
 def cleanup_sessions():
     now = datetime.utcnow()
     expired = [k for k, v in sessions.items() if v["expires"] < now]
     for k in expired:
         del sessions[k]
-
-class ScenarioRequest(BaseModel):
-    model_config = {"extra": "allow"}
-    
-    tema: str
-    sector: Optional[str] = ""
-    territorio: Optional[str] = ""
-    horizonte: Optional[str] = ""
-    pregunta_central: Optional[str] = ""
-    escenarios_json: Optional[Any] = None
-
+ 
 @app.get("/")
 def root():
     return {"status": "ok", "service": "CEPLAN Escenarios API"}
-
+ 
 @app.post("/generateScenario")
 async def generate_scenario(request: Request):
-    body = await request.json()
-    
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body no es JSON valido")
+ 
     tema = body.get("tema")
     sector = body.get("sector", "")
     territorio = body.get("territorio", "")
     horizonte = body.get("horizonte", "")
     pregunta_central = body.get("pregunta_central", "")
     data = body.get("escenarios_json")
-
+ 
     if not tema or not data:
         raise HTTPException(status_code=400, detail="Faltan campos: tema, escenarios_json")
-
+ 
     if isinstance(data, str):
         try:
             data = json.loads(data)
         except Exception:
             raise HTTPException(status_code=400, detail="escenarios_json no es JSON valido")
+ 
     cleanup_sessions()
-
-    if isinstance(req.escenarios_json, str):
-        try:
-            data = json.loads(req.escenarios_json)
-        except Exception:
-            raise HTTPException(status_code=400, detail="escenarios_json no es JSON valido")
-    else:
-        data = req.escenarios_json
-
+ 
     session_id = str(uuid.uuid4()).replace("-", "")[:16]
     sessions[session_id] = {
         "data": data,
-        "tema": req.tema,
-        "sector": req.sector or "",
-        "territorio": req.territorio or "",
-        "horizonte": req.horizonte or "",
-        "pregunta_central": req.pregunta_central or "",
+        "tema": tema,
+        "sector": sector,
+        "territorio": territorio,
+        "horizonte": horizonte,
+        "pregunta_central": pregunta_central,
         "expires": datetime.utcnow() + timedelta(hours=SESSION_TTL_HOURS),
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.utcnow().strftime("%d/%m/%Y"),
     }
-
-    BASE_URL = "https://TU-APP.onrender.com"
+ 
+    BASE_URL = "https://escenarios.onrender.com"
     view_url = f"{BASE_URL}/view/{session_id}"
-
+ 
     return JSONResponse({
         "success": True,
-        "session_id": session_id,
         "view_url": view_url,
         "message": f"Reporte listo. Abre: {view_url}",
     })
-
+ 
 @app.get("/view/{session_id}", response_class=HTMLResponse)
-def view_report(session_id: str):
+def view_scenario(session_id: str):
     cleanup_sessions()
     if session_id not in sessions:
         return HTMLResponse("""<!DOCTYPE html>
@@ -103,7 +85,7 @@ def view_report(session_id: str):
 h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
 <body><div class="box"><h1>Sesion no disponible</h1>
 <p>Este reporte expiro o no existe.<br>Genera uno nuevo desde ChatGPT.</p></div></body></html>""", status_code=404)
-
+ 
     s = sessions[session_id]
     data = s["data"]
     meta = data.get("metadata", {})
@@ -111,22 +93,22 @@ h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
     escenarios = data.get("escenarios", [])
     cierre = data.get("cierre", {})
     lectura = data.get("lectura_prospectiva", "")
-
+ 
     def esc(v):
         if not v: return ""
         return str(v).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;")
-
+ 
     def bullet_list(arr, cls=""):
         if not arr: return '<li class="empty-li">—</li>'
         return "".join(f'<li class="{cls}">{esc(i)}</li>' for i in arr)
-
+ 
     def badge(tipo):
         return {
             "tendencial": ("Tendencial","#1A5FA8","#EAF1FB","&rarr;"),
             "optimista":  ("Optimista", "#1A7A3C","#E8F5EC","&uarr;"),
             "adverso":    ("Adverso",   "#C8102E","#FDF0F2","&darr;"),
         }.get(tipo, (tipo,"#555","#f0f0f0","&bull;"))
-
+ 
     def scenario_card(sc):
         label, color, bg, icon = badge(sc.get("tipo",""))
         return f"""
@@ -149,18 +131,16 @@ h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
             <div class="sc-signals"><div class="sc-section-label">&#128225; Senales</div><ul>{bullet_list(sc.get("senales_monitoreo",[]),"senal")}</ul></div>
           </div>
         </section>"""
-
+ 
     insumo_html = ""
-    for label, arr in [("Tendencias", insumos.get("tendencias")),
-                       ("Riesgos", insumos.get("riesgos")),
-                       ("Oportunidades", insumos.get("oportunidades")),
-                       ("Megatendencias", insumos.get("megatendencias"))]:
+    for label, key in [("Tendencias","tendencias"),("Riesgos","riesgos"),("Oportunidades","oportunidades"),("Megatendencias","megatendencias")]:
+        arr = insumos.get(key, [])
         if arr:
             items = "".join(f"<li>{esc(i)}</li>" for i in arr)
             insumo_html += f'<div class="insumo-group"><div class="insumo-label">{label}</div><ul>{items}</ul></div>'
-
+ 
     scenario_cards = "".join(scenario_card(sc) for sc in escenarios)
-
+ 
     cierre_html = ""
     if cierre.get("hallazgos") or cierre.get("advertencia") or cierre.get("descargo"):
         ha = "".join(f"<li>{esc(h)}</li>" for h in cierre.get("hallazgos", []))
@@ -173,7 +153,7 @@ h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
             {"<p class='cierre-descargo'>" + esc(cierre.get("descargo","")) + "</p>" if cierre.get("descargo") else ""}
           </div>
         </div>"""
-
+ 
     html = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -250,6 +230,7 @@ h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
     .cierre-body li:last-child{{border-bottom:none;}}
     .cierre-descargo{{font-size:.78rem;color:var(--muted);font-style:italic;line-height:1.6;grid-column:1/-1;padding-top:1rem;border-top:1px solid var(--gris2);}}
     footer{{background:#9B0B22;color:rgba(255,255,255,.7);padding:1.2rem 2rem;text-align:center;font-size:.68rem;letter-spacing:.06em;}}
+    @media(max-width:640px){{.main{{padding:1.5rem 1rem 3rem;}}.hero{{padding:1.5rem 1rem 1rem;}}.hi{{padding:.8rem 1rem;}}}}
   </style>
 </head>
 <body>
@@ -281,8 +262,7 @@ h1{color:#C8102E;}p{color:#666;font-size:.9rem;}</style></head>
   <div class="scenarios-list">{scenario_cards}</div>
   {cierre_html}
 </main>
-<footer>CEPLAN — Centro Nacional de Planeamiento Estrategico &nbsp;|&nbsp; {s["created_at"][:10]} &nbsp;|&nbsp; Ejercicio exploratorio de demo · Sesion valida 24h</footer>
+<footer>CEPLAN — Centro Nacional de Planeamiento Estrategico &nbsp;|&nbsp; {s["created_at"]} &nbsp;|&nbsp; Sesion valida 24h</footer>
 </body>
 </html>"""
-
     return HTMLResponse(html)
