@@ -44,9 +44,7 @@ export default async function handler(req, res) {
     // Store in KV — expires in 30 days (2592000 seconds)
     await kv.set(`scenario:${session_id}`, JSON.stringify(payload), { ex: 2592000 });
 
-    const BASE_URL = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://ceplan-escenarios.vercel.app';
+   const BASE_URL = 'https://escenarios-palominogeraldo23-5744s-projects.vercel.app';
 
     const view_url = `${BASE_URL}/view/${session_id}`;
 
