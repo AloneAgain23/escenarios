@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, Optional
+
 import uuid
 import json
 from datetime import datetime, timedelta
@@ -41,7 +42,24 @@ def root():
     return {"status": "ok", "service": "CEPLAN Escenarios API"}
 
 @app.post("/generateScenario")
-def generate_scenario(req: GenerateRequest):
+async def generate_scenario(request: Request):
+    body = await request.json()
+    
+    tema = body.get("tema")
+    sector = body.get("sector", "")
+    territorio = body.get("territorio", "")
+    horizonte = body.get("horizonte", "")
+    pregunta_central = body.get("pregunta_central", "")
+    data = body.get("escenarios_json")
+
+    if not tema or not data:
+        raise HTTPException(status_code=400, detail="Faltan campos: tema, escenarios_json")
+
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            raise HTTPException(status_code=400, detail="escenarios_json no es JSON valido")
     cleanup_sessions()
 
     if isinstance(req.escenarios_json, str):
