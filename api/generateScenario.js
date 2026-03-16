@@ -1,5 +1,5 @@
 // api/generateScenario.js
-// Sin base de datos - codifica datos en base64 dentro de la URL
+// Sin base de datos - codifica datos compactos en base64 dentro de la URL
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,17 +21,49 @@ module.exports = async function handler(req, res) {
       catch { return res.status(400).json({ error: 'escenarios_json no es JSON valido' }); }
     }
 
-    const payload = {
-      data,
-      tema,
-      sector: sector || '',
-      territorio: territorio || '',
-      horizonte: horizonte || '',
-      pregunta_central: pregunta_central || '',
-      created_at: new Date().toISOString(),
+    // Recortar campos para minimizar el tamaño del payload
+    function trim(str, max) {
+      if (!str) return '';
+      return String(str).slice(0, max);
+    }
+    function trimArr(arr, maxItems, maxLen) {
+      if (!Array.isArray(arr)) return [];
+      return arr.slice(0, maxItems).map(i => trim(i, maxLen));
+    }
+
+    const compact = {
+      t: trim(tema, 120),
+      se: trim(sector, 80),
+      te: trim(territorio, 80),
+      h: trim(horizonte, 40),
+      pq: trim(pregunta_central, 200),
+      ca: new Date().toISOString().slice(0, 10),
+      mo: trim((data.metadata || {}).model, 40),
+      in: {
+        td: trimArr((data.insumos || {}).tendencias, 3, 100),
+        ri: trimArr((data.insumos || {}).riesgos, 2, 100),
+        op: trimArr((data.insumos || {}).oportunidades, 2, 100),
+        mt: trimArr((data.insumos || {}).megatendencias, 1, 100),
+      },
+      lp: trim(data.lectura_prospectiva, 400),
+      es: (data.escenarios || []).slice(0, 3).map(sc => ({
+        tp: trim(sc.tipo, 15),
+        nm: trim(sc.nombre, 80),
+        nv: trim(sc.narrativa, 600),
+        im: trimArr(sc.impulsores, 3, 80),
+        ri: trimArr(sc.riesgos, 2, 80),
+        op: trimArr(sc.oportunidades, 2, 80),
+        ic: trimArr(sc.implicancias, 2, 100),
+        sm: trimArr(sc.senales_monitoreo, 3, 100),
+      })),
+      ci: {
+        ha: trimArr((data.cierre || {}).hallazgos, 2, 120),
+        ad: trim((data.cierre || {}).advertencia, 150),
+        dc: trim((data.cierre || {}).descargo, 200),
+      },
     };
 
-    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const encoded = Buffer.from(JSON.stringify(compact)).toString('base64url');
     const BASE_URL = 'https://escenarios-palominogeraldo23-5744s-projects.vercel.app';
     const view_url = BASE_URL + '/api/view?d=' + encoded;
 
