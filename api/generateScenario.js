@@ -1,6 +1,5 @@
 // api/generateScenario.js
-const { kv } = require('@vercel/kv');
-const { randomBytes } = require('crypto');
+// Sin base de datos - codifica datos en base64 dentro de la URL
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,31 +18,27 @@ module.exports = async function handler(req, res) {
     let data = escenarios_json;
     if (typeof data === 'string') {
       try { data = JSON.parse(data); }
-      catch { return res.status(400).json({ error: 'escenarios_json no es JSON válido' }); }
+      catch { return res.status(400).json({ error: 'escenarios_json no es JSON valido' }); }
     }
 
-    const session_id = randomBytes(8).toString('hex');
     const payload = {
       data,
       tema,
-      sector:           sector || '',
-      territorio:       territorio || '',
-      horizonte:        horizonte || '',
+      sector: sector || '',
+      territorio: territorio || '',
+      horizonte: horizonte || '',
       pregunta_central: pregunta_central || '',
-      created_at:       new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    // Guardar en KV con TTL de 30 días
-    await kv.set(`scenario:${session_id}`, JSON.stringify(payload), { ex: 2592000 });
-
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const BASE_URL = 'https://escenarios-palominogeraldo23-5744s-projects.vercel.app';
-    const view_url = `${BASE_URL}/view/${session_id}`;
+    const view_url = BASE_URL + '/api/view?d=' + encoded;
 
     return res.status(200).json({
       success: true,
-      session_id,
-      view_url,
-      message: `Reporte listo. Abre: ${view_url}`,
+      view_url: view_url,
+      message: 'Reporte listo. Abre: ' + view_url,
     });
 
   } catch (err) {
