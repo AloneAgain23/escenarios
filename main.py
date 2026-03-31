@@ -82,7 +82,7 @@ async def generate_scenario(request: Request):
         "created_at": datetime.utcnow().strftime("%d/%m/%Y"),
     }
     
-    BASE_URL = "https://escenarios-3f41.on.com"
+    BASE_URL = "https://escenarios-3f41.onrender.com"
     view_url = f"{BASE_URL}/view/{session_id}"
 
     return JSONResponse({
