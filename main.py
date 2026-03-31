@@ -23,7 +23,7 @@ def keep_alive():
     import time, urllib.request
     while True:
         try:
-            urllib.request.urlopen("https://escenarios.onrender.com/")
+            urllib.request.urlopen("https://escenarios-3f41.onrender.com/")
         except:
             pass
         time.sleep(840)
@@ -82,7 +82,7 @@ async def generate_scenario(request: Request):
         "created_at": datetime.utcnow().strftime("%d/%m/%Y"),
     }
     
-    BASE_URL = "https://escenarios.onrender.com"
+    BASE_URL = "https://escenarios-3f41.on.com"
     view_url = f"{BASE_URL}/view/{session_id}"
 
     return JSONResponse({
